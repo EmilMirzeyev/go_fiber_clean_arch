@@ -8,6 +8,9 @@ import (
 
 // BuildImageURL generates a full URL for an image using the request's host and protocol
 func BuildImageURL(c *fiber.Ctx, imageName string) string {
+	if imageName == "" {
+		return ""
+	}
 	protocol := "http"
 	if c.Protocol() == "https" {
 		protocol = "https"

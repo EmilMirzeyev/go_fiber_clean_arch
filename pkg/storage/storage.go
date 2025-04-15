@@ -16,7 +16,7 @@ func NewDatabaseConnection(dsn string) *gorm.DB {
 	}
 
 	// Auto migrate the schema
-	err = db.AutoMigrate(&entity.User{}, &entity.File{})
+	err = db.AutoMigrate(&entity.User{}, &entity.File{}, &entity.Role{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}

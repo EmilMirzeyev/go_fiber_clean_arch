@@ -96,6 +96,8 @@ func (s *userService) CreateUser(c *fiber.Ctx, currentUserRole string) (dto.User
 		ID:       user.ID,
 		Name:     user.Name,
 		Age:      user.Age,
+		Email:    user.Email,
+		Role:     user.Role.Name,
 		ImageUrl: util.BuildImageURL(c, user.ImageName),
 	}, nil, fiber.StatusCreated
 }
@@ -112,6 +114,8 @@ func (s *userService) GetAllUsers(c *fiber.Ctx) ([]dto.UserResponse, error, int)
 			ID:       user.ID,
 			Name:     user.Name,
 			Age:      user.Age,
+			Email:    user.Email,
+			Role:     user.Role.Name,
 			ImageUrl: util.BuildImageURL(c, user.ImageName),
 		})
 	}
@@ -132,6 +136,8 @@ func (s *userService) GetUser(id uint, c *fiber.Ctx) (dto.UserResponse, error, i
 		ID:       user.ID,
 		Name:     user.Name,
 		Age:      user.Age,
+		Email:    user.Email,
+		Role:     user.Role.Name,
 		ImageUrl: util.BuildImageURL(c, user.ImageName),
 	}, nil, fiber.StatusOK
 }
@@ -223,6 +229,8 @@ func (s *userService) UpdateUser(c *fiber.Ctx, id uint, currentUserID uint, curr
 		ID:       existingUser.ID,
 		Name:     existingUser.Name,
 		Age:      existingUser.Age,
+		Email:    existingUser.Email,
+		Role:     existingUser.Role.Name,
 		ImageUrl: util.BuildImageURL(c, existingUser.ImageName),
 	}, nil, fiber.StatusOK
 }

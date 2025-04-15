@@ -1,4 +1,3 @@
-// cmd/app/main.go
 package main
 
 import (
@@ -28,12 +27,15 @@ func main() {
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	fileRepo := repository.NewFileRepository(db)
+	roleRepo := repository.NewRoleRepository(db)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, fileRepo)
+	authService := service.NewAuthService(userRepo, roleRepo)
 
 	// Initialize controllers
 	userController := controller.NewUserController(userService)
+	authController := controller.NewAuthController(authService)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -58,7 +60,7 @@ func main() {
 	app.Use(cors.New())
 
 	// Setup routes
-	routes.SetupRoutes(app, userController)
+	routes.SetupRoutes(app, userController, authController)
 
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)

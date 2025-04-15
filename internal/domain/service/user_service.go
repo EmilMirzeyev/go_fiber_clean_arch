@@ -29,27 +29,32 @@ func NewUserService(
 	}
 }
 
-func (s *userService) CreateUser(c *fiber.Ctx) (dto.UserResponse, error) {
+func (s *userService) CreateUser(c *fiber.Ctx, currentUserRole string) (dto.UserResponse, error, int) {
+	// Only admins can create users
+	if currentUserRole != "admin" {
+		return dto.UserResponse{}, errors.New("permission denied"), fiber.StatusForbidden
+	}
+
 	// Check required fields
 	name := c.FormValue("name")
 	if name == "" {
-		return dto.UserResponse{}, errors.New("name is required")
+		return dto.UserResponse{}, errors.New("name is required"), fiber.StatusBadRequest
 	}
 
 	birthdate := c.FormValue("birthdate")
 	if birthdate == "" {
-		return dto.UserResponse{}, errors.New("birthdate is required")
+		return dto.UserResponse{}, errors.New("birthdate is required"), fiber.StatusBadRequest
 	}
 
 	image, err := c.FormFile("image")
 	if err != nil {
-		return dto.UserResponse{}, errors.New("image is required")
+		return dto.UserResponse{}, errors.New("image is required"), fiber.StatusBadRequest
 	}
 
 	// Parse birthdate
 	birthTime, err := util.ParseBirthdate(birthdate)
 	if err != nil {
-		return dto.UserResponse{}, errors.New("invalid birthdate format. Please use DD.MM.YYYY")
+		return dto.UserResponse{}, errors.New("invalid birthdate format. Please use DD.MM.YYYY"), fiber.StatusBadRequest
 	}
 
 	// Calculate age
@@ -58,7 +63,7 @@ func (s *userService) CreateUser(c *fiber.Ctx) (dto.UserResponse, error) {
 	// Save image file
 	imageName, err := util.SaveUploadedFile(c, image)
 	if err != nil {
-		return dto.UserResponse{}, fmt.Errorf("failed to save image: %w", err)
+		return dto.UserResponse{}, fmt.Errorf("failed to save image: %w", err), fiber.StatusInternalServerError
 	}
 
 	// Create user entity
@@ -72,7 +77,7 @@ func (s *userService) CreateUser(c *fiber.Ctx) (dto.UserResponse, error) {
 	if err := s.userRepo.Create(&user); err != nil {
 		// Clean up the image file if user creation fails
 		_ = util.DeleteFile(imageName)
-		return dto.UserResponse{}, fmt.Errorf("failed to create user: %w", err)
+		return dto.UserResponse{}, fmt.Errorf("failed to create user: %w", err), fiber.StatusInternalServerError
 	}
 
 	// Create file record
@@ -83,7 +88,7 @@ func (s *userService) CreateUser(c *fiber.Ctx) (dto.UserResponse, error) {
 
 	if err := s.fileRepo.Create(&file); err != nil {
 		// We should implement a proper rollback here in production code
-		return dto.UserResponse{}, fmt.Errorf("failed to create file record: %w", err)
+		return dto.UserResponse{}, fmt.Errorf("failed to create file record: %w", err), fiber.StatusInternalServerError
 	}
 
 	// Build response
@@ -92,13 +97,13 @@ func (s *userService) CreateUser(c *fiber.Ctx) (dto.UserResponse, error) {
 		Name:     user.Name,
 		Age:      user.Age,
 		ImageUrl: util.BuildImageURL(c, user.ImageName),
-	}, nil
+	}, nil, fiber.StatusCreated
 }
 
-func (s *userService) GetAllUsers(c *fiber.Ctx) ([]dto.UserResponse, error) {
+func (s *userService) GetAllUsers(c *fiber.Ctx) ([]dto.UserResponse, error, int) {
 	users, err := s.userRepo.FindAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve users: %w", err)
+		return nil, fmt.Errorf("failed to retrieve users: %w", err), fiber.StatusInternalServerError
 	}
 
 	var response []dto.UserResponse
@@ -111,10 +116,10 @@ func (s *userService) GetAllUsers(c *fiber.Ctx) ([]dto.UserResponse, error) {
 		})
 	}
 
-	return response, nil
+	return response, nil, fiber.StatusOK
 }
 
-func (s *userService) GetUser(c *fiber.Ctx, id uint) (dto.UserResponse, error, int) {
+func (s *userService) GetUser(id uint, c *fiber.Ctx) (dto.UserResponse, error, int) {
 	user, err := s.userRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -131,7 +136,13 @@ func (s *userService) GetUser(c *fiber.Ctx, id uint) (dto.UserResponse, error, i
 	}, nil, fiber.StatusOK
 }
 
-func (s *userService) UpdateUser(c *fiber.Ctx, id uint) (dto.UserResponse, error, int) {
+func (s *userService) UpdateUser(c *fiber.Ctx, id uint, currentUserID uint, currentUserRole string) (dto.UserResponse, error, int) {
+	// Check if user has permission to update this record
+	// Admin can update any record, users can only update their own
+	if currentUserRole != "admin" && currentUserID != id {
+		return dto.UserResponse{}, errors.New("permission denied"), fiber.StatusForbidden
+	}
+
 	// Find existing user
 	existingUser, err := s.userRepo.FindByID(id)
 	if err != nil {
@@ -216,7 +227,12 @@ func (s *userService) UpdateUser(c *fiber.Ctx, id uint) (dto.UserResponse, error
 	}, nil, fiber.StatusOK
 }
 
-func (s *userService) DeleteUser(id uint) (error, int) {
+func (s *userService) DeleteUser(id uint, currentUserID uint, currentUserRole string) (error, int) {
+	// Only admins can delete users
+	if currentUserRole != "admin" {
+		return errors.New("permission denied"), fiber.StatusForbidden
+	}
+
 	// Find the user to get image filename
 	user, err := s.userRepo.FindByID(id)
 	if err != nil {

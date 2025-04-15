@@ -19,21 +19,24 @@ func NewUserController(userService interfaces.UserService) *UserController {
 }
 
 func (uc *UserController) CreateUser(c *fiber.Ctx) error {
-	response, err := uc.userService.CreateUser(c)
+	// Get current user role from context (set by auth middleware)
+	role := c.Locals("role").(string)
+
+	response, err, status := uc.userService.CreateUser(c, role)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(status, err.Error())
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response)
+	return c.Status(status).JSON(response)
 }
 
 func (uc *UserController) GetAllUsers(c *fiber.Ctx) error {
-	users, err := uc.userService.GetAllUsers(c)
+	users, err, status := uc.userService.GetAllUsers(c)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(status, err.Error())
 	}
 
-	return c.JSON(users)
+	return c.Status(status).JSON(users)
 }
 
 func (uc *UserController) GetUser(c *fiber.Ctx) error {
@@ -42,35 +45,45 @@ func (uc *UserController) GetUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
 	}
 
-	user, err, status := uc.userService.GetUser(c, uint(id))
+	user, err, status := uc.userService.GetUser(uint(id), c)
 	if err != nil {
 		return fiber.NewError(status, err.Error())
 	}
 
-	return c.JSON(user)
+	return c.Status(status).JSON(user)
 }
 
 func (uc *UserController) UpdateUser(c *fiber.Ctx) error {
+	// Get target user ID
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
 	}
 
-	user, err, status := uc.userService.UpdateUser(c, uint(id))
+	// Get current user info from context (set by auth middleware)
+	currentUserID := c.Locals("user_id").(uint)
+	currentUserRole := c.Locals("role").(string)
+
+	user, err, status := uc.userService.UpdateUser(c, uint(id), currentUserID, currentUserRole)
 	if err != nil {
 		return fiber.NewError(status, err.Error())
 	}
 
-	return c.JSON(user)
+	return c.Status(status).JSON(user)
 }
 
 func (uc *UserController) DeleteUser(c *fiber.Ctx) error {
+	// Get target user ID
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
 	}
 
-	err, status := uc.userService.DeleteUser(uint(id))
+	// Get current user info from context (set by auth middleware)
+	currentUserID := c.Locals("user_id").(uint)
+	currentUserRole := c.Locals("role").(string)
+
+	err, status := uc.userService.DeleteUser(uint(id), currentUserID, currentUserRole)
 	if err != nil {
 		return fiber.NewError(status, err.Error())
 	}
